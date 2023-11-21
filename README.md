@@ -1,5 +1,7 @@
 # Calculating Garman–Kohlhagen for FX Options
 
+Garman–Kohlhagen is a options pricing model specifically made for FX. Utilzing a similar composition to Black Scholes, we calculate the price of an option through the underlying's spot price, risk free rate (both domestically and foreign), time to maturity, and volatility. I have taken the equations that Garman Kohlhagen has done, and put them into Python.
+
 ## Imports
 
 
@@ -14,7 +16,7 @@ import math
 
 ### Garman–Kohlhagen Equations
 
-![GKequation.png](GKequation.png)
+![Screenshot 2023-11-20 at 10.30.04 PM.png](77c4b37e-b7f1-466c-a063-8b37d58ef959.png)
 
 ### Garman–Kohlhagen Helper Functions
 
@@ -22,7 +24,7 @@ import math
 ```python
 # Calcuating d1 of Black Scholes Equation
 def d1(S, K, rd, rf, T, sigma):
-    return ((np.log(S/K) + (rd - rf + (sigma ** 2)/2) * t)) / (sigma * np.sqrt(T))
+    return ((np.log(S/K) + (rd - rf + (sigma ** 2)/2) * T)) / (sigma * np.sqrt(T))
 
 # Calcuating d2 of Black Scholes Equation
 def d2(S, K, rd, rf, T, sigma):
@@ -66,7 +68,7 @@ def garman_kohlhagen(S, K, rd, rf, T, sigma, flag = "c"):
 ```python
 # DEXUSEU is U.S. Dollars to Euro Spot Exchange Rate
 pair = 'DEXUSEU'
-expiry = '12-21-2023'
+expiry = '12-21-2024'
 strike = 1.1250
 
 # Pulling FX Exchange data from Federal Reserve Bank of St. Louis
@@ -81,7 +83,7 @@ sigma = np.sqrt(252) * df['Returns'].std()
 
 # Pulling One Yr. Yield data from Federal Reserve Bank of St. Louis
 oneyrUSD = reader.DataReader('DGS1', 'fred').iloc[-1] / 100
-oneyrEUR = 3.47 / 100 # Hard Coded
+oneyrEUR = reader.DataReader('ECBESTRVOLWGTTRMDMNRT', 'fred').iloc[-1] / 100
 spot = df['DEXUSEU'].iloc[-1]
 
 # Calculating Time to Maturity
@@ -98,22 +100,26 @@ T = (datetime.strptime(expiry, "%m-%d-%Y") - datetime.utcnow()).days / 365
 print("Spot Price:      ", round(spot, 3))
 print("Strike Price:    ", round(strike, 3))
 print("1 Yr US Yield %: ", round(oneyrUSD[0] * 100, 3))
-print("1 Yr EU Yield %: ", round(oneyrEUR * 100, 3))
+print("1 Yr EU Yield %: ", round(oneyrEUR[0] * 100, 3))
 print("DTE:             ", round(T, 3))
 print("Sigma:           ", round(sigma, 3))
 
-print("Option Price:    ", round(garman_kohlhagen(spot, strike, oneyrUSD[0], oneyrEUR, T, sigma, "c"), 3))
+print("Option Price:    ", round(garman_kohlhagen(spot, strike, oneyrUSD[0], oneyrEUR, T, sigma, "c")[0], 3))
 ```
 
     Spot Price:       1.088
     Strike Price:     1.125
     1 Yr US Yield %:  5.24
-    1 Yr EU Yield %:  3.47
-    DTE:              0.079
+    1 Yr EU Yield %:  ECBESTRVOLWGTTRMDMNRT    3.902
+    Name: 2023-11-17 00:00:00, dtype: float64
+    DTE:              1.082
     Sigma:            0.073
-    Option Price:     0.036
+    Option Price:     0.041
+
 
 ### Resources Utilized
+
+
 ```python
 # GK Equations:
 https://en.wikipedia.org/wiki/Foreign_exchange_option
