@@ -16,7 +16,7 @@ import math
 
 ### Garman–Kohlhagen Equations
 
-![Screenshot 2023-11-20 at 10.30.04 PM.png](77c4b37e-b7f1-466c-a063-8b37d58ef959.png)
+![GKequation.png](GKequation.png)
 
 ### Garman–Kohlhagen Helper Functions
 
