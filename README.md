@@ -113,3 +113,14 @@ print("Option Price:    ", round(garman_kohlhagen(spot, strike, oneyrUSD[0], one
     Sigma:            0.073
     Option Price:     0.036
 
+### Resources Utilized
+```python
+# GK Equations:
+# https://en.wikipedia.org/wiki/Foreign_exchange_option
+
+# Black Scholes Inspiration:
+# https://quantpy.com.au/black-scholes-model/calculating-black-scholes-greeks-with-python/
+
+# Data Collection Inspiration:
+# https://www.suhailsaqan.com/blog/black-scholes/
+```
