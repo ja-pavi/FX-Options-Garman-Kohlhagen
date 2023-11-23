@@ -16,7 +16,10 @@ import matplotlib.pyplot as plt
 import pandas_datareader as reader
 from scipy.optimize import minimize
 from datetime import datetime, date
+from scipy.interpolate import interp1d
+from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.ndimage import gaussian_filter1d
 ```
 
 ### Garman–Kohlhagen Equations
@@ -276,23 +279,18 @@ def implied_volatility(option_price, S, K, T, rd, rf, initial_guess = 0.2, flag 
 
 ```python
 # Implied Volatility of Option
-IV = implied_volatility(option_call_price, spot, strike, oneyrUSD, oneyrEUR, T, sigma, "c")
+IV = implied_volatility(option_call_price, spot, strike, oneyrUSD, oneyrEUR, T)
 
 # Printing out Implied Volatility, Sigma, & Difference
 print("Implied Volatility:      ", IV)
 print("Historical Volatility:   ", sigma)
 ```
 
-    Implied Volatility:       0.20277918936985043
+    Implied Volatility:       0.20004369163461813
     Historical Volatility:    0.07256901791255091
 
 
 # Volatility Smile Construction Functions
-
-The volatility smile is a graphical pattern that shows that implied volatility for the options in question increases as they move away from the current stock or asset price. 
-
-Resource: 
-https://www.sofi.com/learn/content/volatility-smile/#:~:text=The%20volatility%20smile%20is%20a,A%20Guide%20to%20Options%20Trading
 
 ### Calculating Volatility Smile
 
@@ -310,7 +308,7 @@ def volatility_smile(option_prices, S, Ks, Ts, rd, rf):
             option_price = option_prices[(K, T)]
 
             # Calculate the implied_volatility from the given parameters
-            IV = implied_volatility(option_price, S, K, T, rd, rf, sigma, "c")
+            IV = implied_volatility(option_price, S, K, T, rd, rf)
             implied_volatilities.append((K, T, IV))
 
     return implied_volatilities
@@ -318,18 +316,34 @@ def volatility_smile(option_prices, S, Ks, Ts, rd, rf):
 
 ### Plotting Volatility Smile
 
+The volatility smile is a graphical pattern that shows that implied volatility for the options in question increases as they move away from the current stock or asset price. 
+
+Resource: 
+https://www.sofi.com/learn/content/volatility-smile/#:~:text=The%20volatility%20smile%20is%20a,A%20Guide%20to%20Options%20Trading
+
 
 ```python
 def plot_volatility_smile(implied_volatilities):
-    # Separate implied volatilities by maturity
-    maturities = list(set(entry[1] for entry in implied_volatilities))
+    # Unpack implied volatilities tuple
+    strikes, maturities, vols = zip(*implied_volatilities)
+
+    # Sort maturities in ascending order
+    sorted_maturities = sorted(set(maturities))
 
     # Plot the volatility smile for each maturity
-    for T in maturities:
+    for T in sorted_maturities[:len(sorted_maturities)//2]:
         subset = [(K, IV) for K, _, IV in implied_volatilities if _ == T]
-        strikes, vols = zip(*subset)
-        plt.plot(strikes, vols, label=f'Maturity: {T * 365} days')
+        subset_strikes, subset_vols = zip(*subset)
 
+        # Use cubic interpolation to smooth the volatility smile
+        f = interp1d(subset_strikes, subset_vols, kind='cubic')
+        smooth_strikes = np.linspace(min(subset_strikes), max(subset_strikes), 100)
+        smooth_vols = f(smooth_strikes)
+
+        plt.plot(smooth_strikes, smooth_vols, label=f'Maturity: {round(T * 365)} days')
+
+    plt.xlim(left=min(strikes) - .005, right=max(strikes) + .005)
+    plt.ylim(bottom=min(vols) - 0.005, top=max(vols) + 0.005)
     plt.xlabel('Strike Price')
     plt.ylabel('Implied Volatility')
     plt.title('Volatility Smile')
@@ -356,13 +370,21 @@ def plot_volatility_surface(implied_volatilities):
 
     # Reshape vols_array into a 2D array
     vols_matrix = vols_array.reshape(len(strikes_array), len(maturities_array))
-    
-    # Plot the volatility surface
-    fig = plt.figure(figsize=(10, 6))
-    ax = fig.add_subplot(111, projection='3d')
-    maturities_mesh, strikes_mesh = np.meshgrid(maturities_array, strikes_array)
-    ax.plot_surface(maturities_mesh, strikes_mesh, vols_matrix, cmap='viridis')
 
+    # Smooth the volatility surface using 2D interpolation
+    smooth_maturities, smooth_strikes = np.meshgrid(np.linspace(min(maturities_array), max(maturities_array), 25),
+                                                    np.linspace(min(strikes_array), max(strikes_array), 25))
+    smooth_vols = griddata((maturities, strikes), vols, (smooth_maturities, smooth_strikes), method='cubic')
+
+    # Plot the smoothed volatility surface
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(smooth_maturities, smooth_strikes, smooth_vols, cmap='viridis')
+
+
+    ax.set_xlim(0, max(maturities))  # Adjust the range as needed
+    ax.set_ylim(min(strikes), max(strikes)) # Adjust the range as needed
+    ax.set_zlim(min(vols) - 0.005, max(vols) + 0.005) # Adjust the range as needed
     ax.set_xlabel('Maturity (Days)')
     ax.set_ylabel('Strike Price')
     ax.set_zlabel('Implied Volatility')
@@ -378,20 +400,20 @@ def plot_volatility_surface(implied_volatilities):
 
 ```python
 # Maturities from CME Group EUR/USD Options Chain
-DTEs = [29 / 365, 61 / 365, 92 / 365, 182 / 365, 365 / 365]
+DTEs = [30 / 365, 60 / 365, 90 / 365, 120 / 365, 150 / 365, 180 / 365, 210 / 365, 240 / 365, 270 / 365, 300 / 365, 330 / 365, 365 / 365, 730 / 365]
 
 # Rounding Maturities
 Ts = [round(x, 3) for x in DTEs]
 
 # Strike Prices for Nov 21st, 2023 from Investing.com on EUR/USD Options
-Ks = [1.075, 1.08, 1.085, 1.09, 1.095, 1.1, 1.105, 1.11, 1.115, 1.12]
+Ks = [1.04, 1.045, 1.05, 1.055, 1.06, 1.065, 1.070, 1.075, 1.08, 1.085, 1.09, 1.095, 1.1, 1.105, 1.11, 1.115, 1.12, 1.125, 1.13, 1.135]
 
 print(Ts)
 print(Ks)
 ```
 
-    [0.079, 0.167, 0.252, 0.499, 1.0]
-    [1.075, 1.08, 1.085, 1.09, 1.095, 1.1, 1.105, 1.11, 1.115, 1.12]
+    [0.082, 0.164, 0.247, 0.329, 0.411, 0.493, 0.575, 0.658, 0.74, 0.822, 0.904, 1.0, 2.0]
+    [1.04, 1.045, 1.05, 1.055, 1.06, 1.065, 1.07, 1.075, 1.08, 1.085, 1.09, 1.095, 1.1, 1.105, 1.11, 1.115, 1.12, 1.125, 1.13, 1.135]
 
 
 ### Creating list of all option contract possibilities
@@ -446,18 +468,18 @@ print(put_frame.head().to_string(index=False) + '\n')
 ```
 
      Strikes  Maturities  Call Prices
-       1.075      28.835        0.020
-       1.080      28.835        0.016
-       1.085      28.835        0.013
-       1.090      28.835        0.010
-       1.095      28.835        0.008
+       1.040       29.93        0.052
+       1.045       29.93        0.047
+       1.050       29.93        0.043
+       1.055       29.93        0.038
+       1.060       29.93        0.033
     
      Strikes  Maturities  Put  Prices
-       1.075      28.835        0.003
-       1.080      28.835        0.005
-       1.085      28.835        0.007
-       1.090      28.835        0.009
-       1.095      28.835        0.012
+       1.040       29.93        0.000
+       1.045       29.93        0.000
+       1.050       29.93        0.000
+       1.055       29.93        0.001
+       1.060       29.93        0.001
     
 
 
@@ -475,7 +497,23 @@ https://www.cmegroup.com/markets/fx/g10/euro-fx.quotes.options.html#venue=globex
 ```python
 # Calculate through list of option prices at varying strikes and maturities
 implied_volatilities = volatility_smile(option_prices_calls, spot, Ks, Ts, oneyrUSD, oneyrEUR)
+
+# Unzipping into lists for dataframe manipulation
+strikes, maturities, vols = zip(*implied_volatilities)
+
+# Vol surface dataframe
+vol_surface_dataframe = pd.DataFrame({'Strikes': put_strikes, 'Maturities': put_maturities, 'Implied Volatilities': vols})
+vol_surface_dataframe = vol_surface_dataframe.sort_values(by=['Maturities', 'Strikes'])
+print(vol_surface_dataframe.head().to_string())
 ```
+
+        Strikes  Maturities  Implied Volatilities
+    0     1.040       29.93              0.071168
+    13    1.045       29.93              0.071591
+    26    1.050       29.93              0.070537
+    39    1.055       29.93              0.073857
+    52    1.060       29.93              0.071990
+
 
 
 ```python
