@@ -1,6 +1,6 @@
-# Calculating Option Price using Garman–Kohlhagen for Foreign Exchange Options
+# Calculating Option Price using Garman Kohlhagen for Foreign Exchange Options
 
-Garman–Kohlhagen is a options pricing model specifically made for FX. Utilzing a similar composition to Black Scholes, we calculate the price of an option through the underlying's spot price, risk free rate (both domestically and foreign), time to maturity, and volatility. I have taken the equations that Garman Kohlhagen has done, and put them into Python.
+Garman–Kohlhagen is a options pricing model specifically made for FX. Utilizing a similar composition to Black Scholes, we calculate the price of an option through the underlying's spot price, risk free rate (both domestically and foreign), time to maturity, and volatility. I have taken the equations that Garman Kohlhagen has done, and put them into Python.
 
 ## Imports
 
